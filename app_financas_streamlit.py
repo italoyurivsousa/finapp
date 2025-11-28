@@ -51,7 +51,7 @@ def do_auth():
     authenticator = stauth.Authenticate(
         credentials,
         auth_settings["cookie_name"],
-        auth_settings["key"],
+        auth_settings["secret_key"],
         auth_settings["expiry_days"],
     )
 
