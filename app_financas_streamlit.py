@@ -273,7 +273,7 @@ elif menu == "Dashboard":
 
         receitas = df[df["tipo"] == "Receita"]["valor"].sum()
         despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
-        saldo = receitas - despesas
+        saldo = receitas + despesas
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Receitas", fmt(receitas))
