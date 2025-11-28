@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from helpers import load_data, save_data
+from helpers import load_data, save_data, load_cards, save_cards # Importando as novas funções
 
 
 # ============================================================
@@ -18,7 +18,6 @@ st.set_page_config(
 # LAYOUT / SIDEBAR (Sem autenticação)
 # ============================================================
 st.sidebar.title("FinApp 💸")
-# A linha st.sidebar.write(f"**Logado como:** {auth_name}") e o logout foram removidos.
 
 st.title("Controle Financeiro — FinApp 💸")
 st.write("Gerencie seus lançamentos de forma simples e segura.")
@@ -27,8 +26,8 @@ st.write("Gerencie seus lançamentos de forma simples e segura.")
 # ============================================================
 # CARREGAR DADOS
 # ============================================================
-# O aplicativo agora carrega os dados diretamente, sem depender de autenticação.
 df = load_data()
+df_cards = load_cards() # Carregando dados dos cartões
 
 
 # ============================================================
@@ -36,7 +35,7 @@ df = load_data()
 # ============================================================
 aba = st.sidebar.radio(
     "Menu",
-    ["Registrar lançamento", "Visualizar registros", "Dashboard"]
+    ["Registrar lançamento", "Visualizar registros", "Dashboard", "Gerenciar Cartões"] # Adicionando nova aba
 )
 
 
@@ -98,3 +97,39 @@ elif aba == "Dashboard":
         col3.metric("Saldo", fmt(saldo))
 
         st.bar_chart(df.groupby("tipo")["valor"].sum())
+
+
+# ============================================================
+# 4 — GERENCIAR CARTÕES
+# ============================================================
+elif aba == "Gerenciar Cartões":
+    st.subheader("Cadastro de Cartões de Crédito")
+
+    with st.form("form_cartao"):
+        nome = st.text_input("Nome do Cartão (Ex: Nubank, Inter)")
+        limite = st.number_input("Limite Total (R$)", min_value=0.0, step=100.0)
+        vencimento = st.number_input("Dia de Vencimento da Fatura", min_value=1, max_value=31, step=1)
+        
+        submitted = st.form_submit_button("Cadastrar Cartão")
+
+        if submitted:
+            if nome and limite > 0 and 1 <= vencimento <= 31:
+                novo_cartao = pd.DataFrame([{
+                    "nome": nome,
+                    "limite": limite,
+                    "vencimento": vencimento,
+                }])
+
+                global df_cards
+                df_cards = pd.concat([df_cards, novo_cartao], ignore_index=True)
+                save_cards(df_cards)
+                st.success(f"Cartão '{nome}' cadastrado com sucesso!")
+            else:
+                st.error("Por favor, preencha todos os campos corretamente.")
+
+    st.markdown("---")
+    st.subheader("Cartões Cadastrados")
+    if df_cards.empty:
+        st.info("Nenhum cartão cadastrado ainda.")
+    else:
+        st.dataframe(df_cards)
