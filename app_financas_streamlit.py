@@ -5,6 +5,9 @@ from datetime import datetime
 from helpers import load_data, save_data
 import copy
 
+# -------------------------------------------------------
+# CONFIG
+# -------------------------------------------------------
 st.set_page_config(
     page_title="FinApp — Controle Financeiro",
     layout="wide",
@@ -12,29 +15,31 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------
-# 🔐 AUTENTICAÇÃO — versão corrigida
+# 🔐 CARREGA CREDENCIAIS
 # -------------------------------------------------------
 def load_credentials():
     """
-    Copia o st.secrets para um dicionário normal,
-    pois o streamlit_authenticator modifica o dict e
-    st.secrets é somente leitura.
+    Copia st.secrets em um dicionário normal.
+    Evita erro de imutabilidade (streamlit_authenticator modifica o dict).
     """
-    # copiar credenciais para dict normal
-    creds = copy.deepcopy(st.secrets["credentials"])
-
-    # copiar configurações
-    auth_settings = copy.deepcopy(st.secrets["auth"])
-
-    return creds, auth_settings
-
-
-def do_auth():
     try:
-        credentials, auth_settings = load_credentials()
+        raw_creds = st.secrets["credentials"]
+        raw_auth = st.secrets["auth"]
     except Exception as e:
-        st.error(f"Erro carregando credenciais: {e}")
+        st.error(f"Erro carregando secrets: {e}")
         st.stop()
+
+    # deep copy -> dict normal
+    credentials = copy.deepcopy(raw_creds)
+    auth_settings = copy.deepcopy(raw_auth)
+
+    return credentials, auth_settings
+
+# -------------------------------------------------------
+# 🔐 AUTENTICAÇÃO
+# -------------------------------------------------------
+def do_auth():
+    credentials, auth_settings = load_credentials()
 
     authenticator = stauth.Authenticate(
         credentials,
@@ -47,25 +52,26 @@ def do_auth():
 
     return auth_status, name, username, authenticator
 
-
-# inicia autenticação
+# -------------------------------------------------------
+# INICIA AUTENTICAÇÃO
+# -------------------------------------------------------
 auth_ok, auth_name, auth_user, authenticator = do_auth()
 
 if not auth_ok:
     st.stop()
 
 # -------------------------------------------------------
-# INTERFACE PRINCIPAL
+# LAYOUT PRINCIPAL
 # -------------------------------------------------------
 st.sidebar.title("FinApp 💸")
 st.sidebar.write(f"**Logado como:** {auth_name}")
 authenticator.logout("Sair", "sidebar")
 
 st.title("Controle Financeiro — FinApp 💸")
-st.write("Gerencie seus lançamentos financeiros de forma simples e segura.")
+st.write("Gerencie seus lançamentos de forma simples e segura.")
 
 # -------------------------------------------------------
-# DADOS
+# CARREGAMENTO DE DADOS
 # -------------------------------------------------------
 df = load_data()
 
@@ -78,7 +84,7 @@ aba = st.sidebar.radio(
 )
 
 # -------------------------------------------------------
-# REGISTRAR LANÇAMENTO
+# 1. REGISTRAR LANÇAMENTO
 # -------------------------------------------------------
 if aba == "Registrar lançamento":
     st.subheader("Novo lançamento")
@@ -100,18 +106,17 @@ if aba == "Registrar lançamento":
 
         df = pd.concat([df, novo], ignore_index=True)
         save_data(df)
-
         st.success("Lançamento registrado!")
 
 # -------------------------------------------------------
-# VISUALIZAR
+# 2. VISUALIZAR REGISTROS
 # -------------------------------------------------------
 elif aba == "Visualizar registros":
     st.subheader("Registros financeiros")
     st.dataframe(df)
 
 # -------------------------------------------------------
-# DASHBOARD
+# 3. DASHBOARD
 # -------------------------------------------------------
 elif aba == "Dashboard":
     st.subheader("Resumo financeiro")
@@ -125,7 +130,7 @@ elif aba == "Dashboard":
 
         col1, col2, col3 = st.columns(3)
 
-        def fmt(x): 
+        def fmt(x):
             return f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
         col1.metric("Receitas", fmt(receitas))
