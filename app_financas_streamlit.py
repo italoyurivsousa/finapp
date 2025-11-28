@@ -480,15 +480,15 @@ elif menu == "Gerenciar Categorias":
             with st.form("edit_cat"):
                 n_nome = st.text_input("Nome", value=row["nome"])
                 n_tipo = st.selectbox("Tipo", ["Despesa","Receita","Ambas"], index=["Despesa","Receita","Ambas"].index(row["tipo"]) if row["tipo"] in ["Despesa","Receita","Ambas"] else 2)
-                acc_names = ["-- Nenhuma --"] + st.session_state.accounts["nome"].tolist() if not st.session_state.accounts.empty else ["-- Nenhuma --"]
-                card_names = ["-- Nenhum --"] + st.session_state.cards["nome"].tolist() if not st.session_state.cards.empty else ["-- Nenhum --"]
+                acc_names = [None] + st.session_state.accounts["nome"].tolist() if not st.session_state.accounts.empty else [None]
+                card_names = [None] + st.session_state.cards["nome"].tolist() if not st.session_state.cards.empty else [None]
                 cur_acc = id_to_name(st.session_state.accounts, row["default_conta_id"]) or None
                 cur_card = id_to_name(st.session_state.cards, row["default_cartao_id"]) or None
                 n_def_acc = st.selectbox("Conta padrão", acc_names, index=acc_names.index(cur_acc) if cur_acc in acc_names else 0)
                 n_def_card = st.selectbox("Cartão padrão", card_names, index=card_names.index(cur_card) if cur_card in card_names else 0)
                 if st.form_submit_button("Salvar alterações"):
-                    def_acc_id = st.session_state.accounts[st.session_state.accounts["nome"] == n_def_acc]["id"].iloc[0] if n_def_acc not in ["-- Nenhuma --"] and not st.session_state.accounts.empty else ""
-                    def_card_id = st.session_state.cards[st.session_state.cards["nome"] == n_def_card]["id"].iloc[0] if n_def_card not in ["-- Nenhum --"] and not st.session_state.cards.empty else ""
+                    def_acc_id = st.session_state.accounts[st.session_state.accounts["nome"] == n_def_acc]["id"].iloc[0] if n_def_acc not in [None] and not st.session_state.accounts.empty else ""
+                    def_card_id = st.session_state.cards[st.session_state.cards["nome"] == n_def_card]["id"].iloc[0] if n_def_card not in [None] and not st.session_state.cards.empty else ""
                     updates = {"nome": n_nome, "tipo": n_tipo, "default_conta_id": def_acc_id, "default_cartao_id": def_card_id}
                     res = update_row("categories", row["id"], updates)
                     if res is not None:
