@@ -24,10 +24,13 @@ st.write("Gerencie seus lançamentos de forma simples e segura.")
 
 
 # ============================================================
-# CARREGAR DADOS
+# CARREGAR DADOS E INICIALIZAR SESSION STATE
 # ============================================================
 df = load_data()
-df_cards = load_cards() # Carregando dados dos cartões
+
+# Inicializa o session_state para df_cards se ainda não existir
+if "df_cards" not in st.session_state:
+    st.session_state["df_cards"] = load_cards()
 
 
 # ============================================================
@@ -120,16 +123,16 @@ elif aba == "Gerenciar Cartões":
                     "vencimento": vencimento,
                 }])
 
-                global df_cards
-                df_cards = pd.concat([df_cards, novo_cartao], ignore_index=True)
-                save_cards(df_cards)
+                # Usa st.session_state para modificar o DataFrame
+                st.session_state["df_cards"] = pd.concat([st.session_state["df_cards"], novo_cartao], ignore_index=True)
+                save_cards(st.session_state["df_cards"])
                 st.success(f"Cartão '{nome}' cadastrado com sucesso!")
             else:
                 st.error("Por favor, preencha todos os campos corretamente.")
 
     st.markdown("---")
     st.subheader("Cartões Cadastrados")
-    if df_cards.empty:
+    if st.session_state["df_cards"].empty:
         st.info("Nenhum cartão cadastrado ainda.")
     else:
-        st.dataframe(df_cards)
+        st.dataframe(st.session_state["df_cards"])
