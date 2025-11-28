@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import streamlit_authenticator as stauth
 from datetime import datetime
 from helpers import load_data, save_data
 
@@ -16,68 +15,10 @@ st.set_page_config(
 
 
 # ============================================================
-# FUNÇÃO PARA CARREGAR CREDENCIAIS
-# ============================================================
-def load_credentials():
-    try:
-        creds = st.secrets["credentials"]
-        auth = st.secrets["auth"]
-
-        # streamlit-authenticator exige esta estrutura
-        credentials = {
-            "usernames": {},
-        }
-
-        for user, info in creds["usernames"].items():
-            credentials["usernames"][user] = {
-                "email": info["email"],
-                "name": info["name"],
-                "password": info["password"],
-            }
-
-        return credentials, auth
-
-    except Exception as e:
-        st.error(f"Erro carregando credenciais: {e}")
-        st.stop()
-
-
-# ============================================================
-# AUTENTICAÇÃO
-# ============================================================
-def do_auth():
-    credentials, auth_settings = load_credentials()
-
-    authenticator = stauth.Authenticate(
-        credentials,
-        auth_settings["cookie_name"],
-        auth_settings["secret_key"],
-        auth_settings["expiry_days"],
-    )
-
-    name, auth_status, username = authenticator.login(
-        "Login",
-        location="main"
-    )
-
-    return auth_status, name, username, authenticator
-
-
-# ============================================================
-# INICIAR AUTENTICAÇÃO
-# ============================================================
-auth_ok, auth_name, auth_user, authenticator = do_auth()
-
-if not auth_ok:
-    st.stop()
-
-
-# ============================================================
-# LAYOUT / SIDEBAR
+# LAYOUT / SIDEBAR (Sem autenticação)
 # ============================================================
 st.sidebar.title("FinApp 💸")
-st.sidebar.write(f"**Logado como:** {auth_name}")
-authenticator.logout("Sair", "sidebar")
+# A linha st.sidebar.write(f"**Logado como:** {auth_name}") e o logout foram removidos.
 
 st.title("Controle Financeiro — FinApp 💸")
 st.write("Gerencie seus lançamentos de forma simples e segura.")
@@ -86,6 +27,7 @@ st.write("Gerencie seus lançamentos de forma simples e segura.")
 # ============================================================
 # CARREGAR DADOS
 # ============================================================
+# O aplicativo agora carrega os dados diretamente, sem depender de autenticação.
 df = load_data()
 
 
