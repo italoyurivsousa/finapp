@@ -3,53 +3,48 @@ import pandas as pd
 import streamlit_authenticator as stauth
 from datetime import datetime
 from helpers import load_data, save_data
-import copy
 
-# -------------------------------------------------------
-# CONFIG
-# -------------------------------------------------------
+
+# ============================================================
+# CONFIGURAÇÃO DO APP
+# ============================================================
 st.set_page_config(
     page_title="FinApp — Controle Financeiro",
     layout="wide",
-    page_icon="💸"
+    page_icon="💸",
 )
 
-# -------------------------------------------------------
-# 🔐 CARREGA CREDENCIAIS
-# -------------------------------------------------------
+
+# ============================================================
+# FUNÇÃO PARA CARREGAR CREDENCIAIS
+# ============================================================
 def load_credentials():
     try:
-        raw_creds = st.secrets["credentials"]
-        raw_auth = st.secrets["auth"]
+        creds = st.secrets["credentials"]
+        auth = st.secrets["auth"]
 
-        # converter para dict normal (sem deepcopy)
+        # streamlit-authenticator exige esta estrutura
         credentials = {
-            "usernames": {}
+            "usernames": {},
         }
 
-        for username, data in raw_creds["usernames"].items():
-            credentials["usernames"][username] = {
-                "email": data["email"],
-                "name": data["name"],
-                "password": data["password"],
+        for user, info in creds["usernames"].items():
+            credentials["usernames"][user] = {
+                "email": info["email"],
+                "name": info["name"],
+                "password": info["password"],
             }
 
-        auth_settings = {
-            "cookie_name": raw_auth["cookie_name"],
-            "key": raw_auth["key"],
-            "expiry_days": raw_auth["expiry_days"],
-        }
-
-        return credentials, auth_settings
+        return credentials, auth
 
     except Exception as e:
         st.error(f"Erro carregando credenciais: {e}")
         st.stop()
 
 
-# -------------------------------------------------------
-# 🔐 AUTENTICAÇÃO
-# -------------------------------------------------------
+# ============================================================
+# AUTENTICAÇÃO
+# ============================================================
 def do_auth():
     credentials, auth_settings = load_credentials()
 
@@ -57,24 +52,29 @@ def do_auth():
         credentials,
         auth_settings["cookie_name"],
         auth_settings["key"],
-        auth_settings["expiry_days"]
+        auth_settings["expiry_days"],
     )
 
-    name, auth_status, username = authenticator.login("Login", location="main")
+    name, auth_status, username = authenticator.login(
+        "Login",
+        location="main",
+    )
 
     return auth_status, name, username, authenticator
 
-# -------------------------------------------------------
-# INICIA AUTENTICAÇÃO
-# -------------------------------------------------------
+
+# ============================================================
+# INICIAR AUTENTICAÇÃO
+# ============================================================
 auth_ok, auth_name, auth_user, authenticator = do_auth()
 
 if not auth_ok:
     st.stop()
 
-# -------------------------------------------------------
-# LAYOUT PRINCIPAL
-# -------------------------------------------------------
+
+# ============================================================
+# LAYOUT / SIDEBAR
+# ============================================================
 st.sidebar.title("FinApp 💸")
 st.sidebar.write(f"**Logado como:** {auth_name}")
 authenticator.logout("Sair", "sidebar")
@@ -82,22 +82,25 @@ authenticator.logout("Sair", "sidebar")
 st.title("Controle Financeiro — FinApp 💸")
 st.write("Gerencie seus lançamentos de forma simples e segura.")
 
-# -------------------------------------------------------
-# CARREGAMENTO DE DADOS
-# -------------------------------------------------------
+
+# ============================================================
+# CARREGAR DADOS
+# ============================================================
 df = load_data()
 
-# -------------------------------------------------------
+
+# ============================================================
 # MENU
-# -------------------------------------------------------
+# ============================================================
 aba = st.sidebar.radio(
     "Menu",
     ["Registrar lançamento", "Visualizar registros", "Dashboard"]
 )
 
-# -------------------------------------------------------
-# 1. REGISTRAR LANÇAMENTO
-# -------------------------------------------------------
+
+# ============================================================
+# 1 — REGISTRAR
+# ============================================================
 if aba == "Registrar lançamento":
     st.subheader("Novo lançamento")
 
@@ -120,22 +123,25 @@ if aba == "Registrar lançamento":
         save_data(df)
         st.success("Lançamento registrado!")
 
-# -------------------------------------------------------
-# 2. VISUALIZAR REGISTROS
-# -------------------------------------------------------
+
+# ============================================================
+# 2 — VISUALIZAÇÃO
+# ============================================================
 elif aba == "Visualizar registros":
     st.subheader("Registros financeiros")
     st.dataframe(df)
 
-# -------------------------------------------------------
-# 3. DASHBOARD
-# -------------------------------------------------------
+
+# ============================================================
+# 3 — DASHBOARD
+# ============================================================
 elif aba == "Dashboard":
     st.subheader("Resumo financeiro")
 
     if df.empty:
         st.info("Nenhum dado registrado ainda.")
     else:
+
         receitas = df[df["tipo"] == "Receita"]["valor"].sum()
         despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
         saldo = receitas - despesas
