@@ -56,8 +56,7 @@ def do_auth():
     )
 
     name, auth_status, username = authenticator.login(
-        "Login",
-        location="main",
+        "Login"
     )
 
     return auth_status, name, username, authenticator
