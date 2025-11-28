@@ -18,22 +18,34 @@ st.set_page_config(
 # 🔐 CARREGA CREDENCIAIS
 # -------------------------------------------------------
 def load_credentials():
-    """
-    Copia st.secrets em um dicionário normal.
-    Evita erro de imutabilidade (streamlit_authenticator modifica o dict).
-    """
     try:
         raw_creds = st.secrets["credentials"]
         raw_auth = st.secrets["auth"]
+
+        # converter para dict normal (sem deepcopy)
+        credentials = {
+            "usernames": {}
+        }
+
+        for username, data in raw_creds["usernames"].items():
+            credentials["usernames"][username] = {
+                "email": data["email"],
+                "name": data["name"],
+                "password": data["password"],
+            }
+
+        auth_settings = {
+            "cookie_name": raw_auth["cookie_name"],
+            "key": raw_auth["key"],
+            "expiry_days": raw_auth["expiry_days"],
+        }
+
+        return credentials, auth_settings
+
     except Exception as e:
-        st.error(f"Erro carregando secrets: {e}")
+        st.error(f"Erro carregando credenciais: {e}")
         st.stop()
 
-    # deep copy -> dict normal
-    credentials = copy.deepcopy(raw_creds)
-    auth_settings = copy.deepcopy(raw_auth)
-
-    return credentials, auth_settings
 
 # -------------------------------------------------------
 # 🔐 AUTENTICAÇÃO
