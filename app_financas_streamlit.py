@@ -6,6 +6,9 @@ import streamlit_authenticator as stauth
 from helpers import load_data, save_data
 from datetime import datetime
 
+st.write("DEBUG LOADED KEYS:", list(st.secrets.keys()))
+
+
 st.set_page_config(
     page_title="Controle Financeiro — App",
     layout="wide",
