@@ -1,45 +1,21 @@
-# app_financas_streamlit.py
-
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 import streamlit_authenticator as stauth
 from helpers import load_data, save_data
-from datetime import datetime
 
-st.write("DEBUG LOADED KEYS:", list(st.secrets.keys()))
-
-
+# -------------------------------------------------------
+# CONFIGURAÇÕES DO APP
+# -------------------------------------------------------
 st.set_page_config(
-    page_title="Controle Financeiro — App",
+    page_title="FinApp — Controle Financeiro",
     layout="wide",
     page_icon="💸"
 )
 
-# =====================================================
-# 1. Autenticação
-# =====================================================
-
-def prepare_credentials():
-    """Converte st.secrets para dict normal (essencial)."""
-    creds_raw = st.secrets.get("credentials", {})
-    users_block = creds_raw.get("users", {})
-
-    credentials = {"usernames": {}}
-
-    for username, info in users_block.items():
-        credentials["usernames"][username] = {
-            "name": info.get("name", ""),
-            "password": info.get("password", "")
-        }
-
-    auth_settings_raw = st.secrets.get("auth_settings", {})
-
-    return credentials, auth_settings_raw
-
-
-import streamlit as st
-import streamlit_authenticator as stauth
-
+# -------------------------------------------------------
+# AUTENTICAÇÃO
+# -------------------------------------------------------
 def do_auth():
     try:
         credentials = st.secrets["credentials"]
@@ -55,7 +31,10 @@ def do_auth():
         auth_settings["expiry_days"]
     )
 
-    name, auth_status, username = authenticator.login("Login", "main")
+    name, auth_status, username = authenticator.login(
+        "Login",
+        "main"
+    )
 
     return auth_status, name, username, authenticator
 
@@ -65,35 +44,33 @@ auth_ok, auth_name, auth_user, authenticator = do_auth()
 if not auth_ok:
     st.stop()
 
-# =====================================================
-# Layout
-# =====================================================
-
-st.title("Controle Financeiro — App 💸")
-st.write("Registre receitas, despesas, contas e visualize tudo em um dashboard.")
-
-authenticator.logout("Sair", "sidebar")
+# -------------------------------------------------------
+# INTERFACE PRINCIPAL
+# -------------------------------------------------------
+st.sidebar.title("FinApp 💸")
 st.sidebar.write(f"**Logado como:** {auth_name}")
 
-# =====================================================
-# Carregamento de dados
-# =====================================================
+authenticator.logout("Sair", "sidebar")
 
+st.title("Controle Financeiro — FinApp 💸")
+st.write("Gerencie seus lançamentos financeiros de forma simples e segura.")
+
+# -------------------------------------------------------
+# CARREGAR DADOS
+# -------------------------------------------------------
 df = load_data()
 
-# =====================================================
-# Aba de navegação
-# =====================================================
-
+# -------------------------------------------------------
+# MENU
+# -------------------------------------------------------
 aba = st.sidebar.radio(
     "Menu",
     ["Registrar lançamento", "Visualizar registros", "Dashboard"]
 )
 
-# =====================================================
-# 1. Registrar lançamento
-# =====================================================
-
+# -------------------------------------------------------
+# 1. REGISTRAR LANÇAMENTO
+# -------------------------------------------------------
 if aba == "Registrar lançamento":
     st.subheader("Novo lançamento")
 
@@ -114,20 +91,18 @@ if aba == "Registrar lançamento":
 
         df = pd.concat([df, novo], ignore_index=True)
         save_data(df)
-        st.success("Lançamento registrado!")
+        st.success("Lançamento registrado com sucesso!")
 
-# =====================================================
-# 2. Visualizar registros
-# =====================================================
-
+# -------------------------------------------------------
+# 2. VISUALIZAR REGISTROS
+# -------------------------------------------------------
 elif aba == "Visualizar registros":
     st.subheader("Registros financeiros")
     st.dataframe(df)
 
-# =====================================================
-# 3. Dashboard simples
-# =====================================================
-
+# -------------------------------------------------------
+# 3. DASHBOARD
+# -------------------------------------------------------
 elif aba == "Dashboard":
     st.subheader("Resumo financeiro")
 
@@ -144,4 +119,5 @@ elif aba == "Dashboard":
         col2.metric("Despesas", f"R$ {despesas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         col3.metric("Saldo", f"R$ {saldo:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-        st.bar_chart(df.groupby("tipo")["valor"].sum())
+        resumo = df.groupby("tipo")["valor"].sum()
+        st.bar_chart(resumo)

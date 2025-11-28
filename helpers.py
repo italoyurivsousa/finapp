@@ -1,23 +1,17 @@
-# helpers.py
-
 import pandas as pd
+import os
 
-def format_brl(valor):
-    try:
-        s = f"{float(valor):,.2f}"
-        return s.replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
-        return valor
+FILE_PATH = "finapp_data.csv"
 
 def load_data():
-    try:
-        df = pd.read_csv("financas.csv")
-        return df
-    except:
-        df = pd.DataFrame(columns=[
-            "data", "tipo", "categoria", "descricao", "valor"
-        ])
-        return df
+    if os.path.exists(FILE_PATH):
+        try:
+            return pd.read_csv(FILE_PATH)
+        except:
+            return pd.DataFrame(columns=["data", "tipo", "categoria", "descricao", "valor"])
+    else:
+        return pd.DataFrame(columns=["data", "tipo", "categoria", "descricao", "valor"])
+
 
 def save_data(df):
-    df.to_csv("financas.csv", index=False)
+    df.to_csv(FILE_PATH, index=False)
