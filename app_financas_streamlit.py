@@ -18,40 +18,50 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ============================================================
-# HELPERS — operações com Supabase
+# HELPERS — operações com Supabase (compatível com supabase-py atual)
 # ============================================================
 
 def fetch_table(table_name):
-    res = supabase.table(table_name).select("*").execute()
-    if res.error:
-        st.error(f"Erro ao buscar {table_name}: {res.error.message}")
+    try:
+        res = supabase.table(table_name).select("*").execute()
+        data = res.data or []
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"Erro ao buscar {table_name}: {e}")
         return pd.DataFrame()
-    data = res.data or []
-    return pd.DataFrame(data)
 
 
 def insert_row(table_name, row: dict):
-    res = supabase.table(table_name).insert(row).execute()
-    if res.error:
-        st.error(f"Erro ao inserir em {table_name}: {res.error.message}")
+    try:
+        res = supabase.table(table_name).insert(row).execute()
+        return res.data[0] if getattr(res, "data", None) else None
+    except Exception as e:
+        st.error(f"Erro ao inserir em {table_name}: {e}")
         return None
-    return res.data[0]
 
 
 def update_row(table_name, row_id, updates: dict):
-    res = supabase.table(table_name).update(updates).eq("id", row_id).execute()
-    if res.error:
-        st.error(f"Erro ao atualizar {table_name}: {res.error.message}")
+    if not row_id:
+        st.error("update_row: row_id não informado")
         return None
-    return res.data
+    try:
+        res = supabase.table(table_name).update(updates).eq("id", row_id).execute()
+        return res.data if getattr(res, "data", None) is not None else []
+    except Exception as e:
+        st.error(f"Erro ao atualizar {table_name}: {e}")
+        return None
 
 
 def delete_row(table_name, row_id):
-    res = supabase.table(table_name).delete().eq("id", row_id).execute()
-    if res.error:
-        st.error(f"Erro ao deletar {table_name}: {res.error.message}")
+    if not row_id:
+        st.error("delete_row: row_id não informado")
         return None
-    return res.data
+    try:
+        res = supabase.table(table_name).delete().eq("id", row_id).execute()
+        return res.data if getattr(res, "data", None) is not None else []
+    except Exception as e:
+        st.error(f"Erro ao deletar {table_name}: {e}")
+        return None
 
 # ============================================================
 # SCHEMA column lists (for DataFrame consistency)
@@ -165,10 +175,14 @@ if menu == "Registrar lançamento":
             if nova_cat:
                 cid = str(uuid4())
                 new_cat = {"id": cid, "nome": nova_cat, "tipo": nova_cat_tipo or "Ambas", "default_conta_id": "", "default_cartao_id": ""}
-                insert_row("categories", new_cat)
-                st.session_state.cats = pd.concat([st.session_state.cats, pd.DataFrame([new_cat])], ignore_index=True)
-                categoria_id = cid
-                categoria_nome = nova_cat
+                created = insert_row("categories", new_cat)
+                if created is not None:
+                    st.session_state.cats = pd.concat([st.session_state.cats, pd.DataFrame([new_cat])], ignore_index=True)
+                    categoria_id = cid
+                    categoria_nome = nova_cat
+                else:
+                    st.error("Falha ao criar categoria. Operação abortada.")
+                    st.stop()
             else:
                 categoria_id = cat_map.get(cat_choice, "")
                 categoria_nome = cat_choice if cat_choice != "-- Nenhuma --" else ""
@@ -347,9 +361,10 @@ elif menu == "Gerenciar Cartões":
                     st.warning("Existem lançamentos vinculados a esse cartão. Ao excluir, as referências serão removidas.")
                     if st.button("Confirmar exclusão deste cartão"):
                         # limpar referências em transactions
-                        update_row("transactions", None, {"cartao_id": "", "cartao_nome": ""}) if False else None
-                        # perform per-row update using supabase SQL
-                        supabase.table("transactions").update({"cartao_id": "", "cartao_nome": ""}).eq("cartao_id", row["id"]).execute()
+                        try:
+                            supabase.table("transactions").update({"cartao_id": "", "cartao_nome": ""}).eq("cartao_id", row["id"]).execute()
+                        except Exception as e:
+                            st.error(f"Falha ao limpar referências do cartão: {e}")
                         res = delete_row("cards", row["id"])
                         if res is not None:
                             st.session_state.tx.loc[st.session_state.tx["cartao_id"] == row["id"], ["cartao_id","cartao_nome"]] = ["", ""]
@@ -406,7 +421,10 @@ elif menu == "Gerenciar Contas":
                 if not linked.empty:
                     st.warning("Existem lançamentos vinculados a essa conta. Ao excluir, as referências serão removidas.")
                     if st.button("Confirmar exclusão desta conta"):
-                        supabase.table("transactions").update({"conta_id": "", "conta_nome": ""}).eq("conta_id", row["id"]).execute()
+                        try:
+                            supabase.table("transactions").update({"conta_id": "", "conta_nome": ""}).eq("conta_id", row["id"]).execute()
+                        except Exception as e:
+                            st.error(f"Falha ao limpar referências da conta: {e}")
                         res = delete_row("accounts", row["id"])
                         if res is not None:
                             st.session_state.tx.loc[st.session_state.tx["conta_id"] == row["id"], ["conta_id","conta_nome"]] = ["", ""]
@@ -481,7 +499,10 @@ elif menu == "Gerenciar Categorias":
                 if not linked.empty:
                     st.warning("Existem lançamentos vinculados a essa categoria. Ao excluir, as referências serão removidas.")
                     if st.button("Confirmar exclusão desta categoria"):
-                        supabase.table("transactions").update({"categoria_id": "", "categoria_nome": ""}).eq("categoria_id", row["id"]).execute()
+                        try:
+                            supabase.table("transactions").update({"categoria_id": "", "categoria_nome": ""}).eq("categoria_id", row["id"]).execute()
+                        except Exception as e:
+                            st.error(f"Falha ao limpar referências da categoria: {e}")
                         res = delete_row("categories", row["id"])
                         if res is not None:
                             st.session_state.tx.loc[st.session_state.tx["categoria_id"] == row["id"], ["categoria_id","categoria_nome"]] = ["", ""]
