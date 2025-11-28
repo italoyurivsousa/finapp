@@ -34,32 +34,27 @@ def prepare_credentials():
     return credentials, auth_settings_raw
 
 
+import streamlit as st
+import streamlit_authenticator as stauth
+
 def do_auth():
-    """Executa o fluxo de autenticação."""
     try:
-        credentials, auth_settings = prepare_credentials()
-
-        authenticator = stauth.Authenticate(
-            credentials,
-            auth_settings.get("cookie_name", "cookie"),
-            auth_settings.get("cookie_key", "key"),
-            auth_settings.get("cookie_expiry_days", 3)
-        )
-
-        name, auth_status, username = authenticator.login("Login", "main")
-
-        if auth_status:
-            return True, name, username, authenticator
-        elif auth_status is False:
-            st.error("Usuário ou senha incorretos.")
-        else:
-            st.info("Informe login e senha.")
-
-        return False, None, None, None
-
+        credentials = st.secrets["credentials"]
+        auth_settings = st.secrets["auth"]
     except Exception as e:
-        st.error(f"Erro inicializando autenticação: {e}")
-        return False, None, None, None
+        st.error(f"Erro carregando credenciais: {e}")
+        st.stop()
+
+    authenticator = stauth.Authenticate(
+        credentials,
+        auth_settings["cookie_name"],
+        auth_settings["key"],
+        auth_settings["expiry_days"]
+    )
+
+    name, auth_status, username = authenticator.login("Login", "main")
+
+    return auth_status, name, username, authenticator
 
 
 auth_ok, auth_name, auth_user, authenticator = do_auth()
