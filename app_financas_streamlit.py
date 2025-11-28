@@ -482,8 +482,8 @@ elif menu == "Gerenciar Categorias":
                 n_tipo = st.selectbox("Tipo", ["Despesa","Receita","Ambas"], index=["Despesa","Receita","Ambas"].index(row["tipo"]) if row["tipo"] in ["Despesa","Receita","Ambas"] else 2)
                 acc_names = ["-- Nenhuma --"] + st.session_state.accounts["nome"].tolist() if not st.session_state.accounts.empty else ["-- Nenhuma --"]
                 card_names = ["-- Nenhum --"] + st.session_state.cards["nome"].tolist() if not st.session_state.cards.empty else ["-- Nenhum --"]
-                cur_acc = id_to_name(st.session_state.accounts, row["default_conta_id"]) or "-- Nenhuma --"
-                cur_card = id_to_name(st.session_state.cards, row["default_cartao_id"]) or "-- Nenhum --"
+                cur_acc = id_to_name(st.session_state.accounts, row["default_conta_id"]) or None
+                cur_card = id_to_name(st.session_state.cards, row["default_cartao_id"]) or None
                 n_def_acc = st.selectbox("Conta padrão", acc_names, index=acc_names.index(cur_acc) if cur_acc in acc_names else 0)
                 n_def_card = st.selectbox("Cartão padrão", card_names, index=card_names.index(cur_card) if cur_card in card_names else 0)
                 if st.form_submit_button("Salvar alterações"):
