@@ -265,7 +265,7 @@ elif menu == "Dashboard":
 
         despesas = -df[
             (df["tipo"] == "Despesa") &
-            (~df["categoria_nome"].str.lower().isin(["transferência", "transferencia", "ajuste de fatura"])) &
+            (~df["categoria_nome"].str.lower().isin(["transferência", "transferencia"])) &
             (df["valor"]<0)
         ]["valor"].sum()
 
