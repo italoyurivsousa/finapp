@@ -271,8 +271,14 @@ elif menu == "Dashboard":
     else:
         df["valor"] = df["valor"].astype(float)
 
-        receitas = df[df["tipo"] == "Receita"]["valor"].sum()
-        despesas = df[df["tipo"] == "Despesa"]["valor"].sum()
+        receitas = df[
+            df["tipo"] == "Receita" &
+            (~df["categoria"].str.lower().isin(["transferência","transferencia"]))
+             ]["valor"].sum()
+        despesas = df[
+            df["tipo"] == "Despesa" &
+            (~df["categoria"].str.lower().isin(["transferência","transferencia"]))
+             ]["valor"].sum()
         saldo = receitas + despesas
 
         col1, col2, col3 = st.columns(3)
