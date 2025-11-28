@@ -9,46 +9,58 @@ from datetime import datetime
 #  PRIMEIRO: AUTENTICAÇÃO — SEM deepcopy, SEM recursão
 # -------------------------------------------------------
 
-def load_credentials():
-    """Carrega credenciais diretamente do secrets.
-       Se não estiverem presentes, usa fallback seguro."""
+def load_credentials_and_settings():
+    # ---- CREDENCIAIS ----
     if "credentials" in st.secrets:
-        return st.secrets["credentials"]
+        creds = st.secrets["credentials"]
     else:
-        return {
+        # fallback seguro
+        creds = {
             "usernames": {
                 "admin": {
+                    "name": "Administrador",
                     "email": "admin@example.com",
-                    "name": "Admin",
-                    "password": stauth.Hasher(["admin"]).generate()[0]
+                    "password": "1234"  # pode mudar depois
                 }
             }
         }
 
-def load_auth_settings():
-    if "auth" in st.secrets:
-        return st.secrets["auth"]
-    else:
-        return {
-            "cookie_name": "finapp_cookie",
-            "key": "RANDOM_KEY_123",
-            "expiry_days": 1
-        }
+    # ---- CONFIGURAÇÕES DE COOKIE ----
+    # Se existir "auth" no secrets, pega; senão usa defaults
+    auth_settings = {
+        "cookie_name": st.secrets.get("auth", {}).get("cookie_name", "finapp_cookie"),
+        "key": st.secrets.get("auth", {}).get("key", "fallback_key_123"),
+        "expiry_days": st.secrets.get("auth", {}).get("expiry_days", 1)
+    }
+
+    return creds, auth_settings
+
+import streamlit_authenticator as stauth
 
 def do_auth():
-    creds = load_credentials()
-    auth_settings = load_auth_settings()
+    creds, auth_settings = load_credentials_and_settings()
 
-    authenticator = stauth.Authenticate(
-        creds,
-        auth_settings["cookie_name"],
-        auth_settings["key"],
-        auth_settings["expiry_days"]
-    )
+    try:
+        authenticator = stauth.Authenticate(
+            creds,
+            auth_settings["cookie_name"],
+            auth_settings["key"],
+            auth_settings["expiry_days"]
+        )
 
-    name, auth_status, username = authenticator.login("Login", "main")
+        name, status, username = authenticator.login("Login", "main")
 
-    return auth_status, name, username, authenticator
+        if status is False:
+            st.error("Usuário ou senha incorretos.")
+        elif status is None:
+            st.warning("Digite usuário e senha.")
+
+        return status, name, username, authenticator
+
+    except Exception as e:
+        st.error(f"Erro inicializando autenticação: {e}")
+        return None, None, None, None
+
 
 
 # -------------------------------------------------------
