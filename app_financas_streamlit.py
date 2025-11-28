@@ -107,7 +107,7 @@ if "cats" not in st.session_state:
 
 # utility
 def id_to_name(df, id_, default=""):
-    if not id_:
+    if not id_ or pd.isna(id_):
         return default
     row = df[df["id"] == id_]
     if not row.empty:
@@ -174,42 +174,49 @@ if menu == "Registrar lançamento":
             # create category if needed
             if nova_cat:
                 cid = str(uuid4())
-                new_cat = {"id": cid, "nome": nova_cat, "tipo": nova_cat_tipo or "Ambas", "default_conta_id": "", "default_cartao_id": ""}
+                # não enviamos default_conta_id/default_cartao_id se vazios
+                new_cat = {"id": cid, "nome": nova_cat, "tipo": nova_cat_tipo or "Ambas"}
                 created = insert_row("categories", new_cat)
                 if created is not None:
-                    st.session_state.cats = pd.concat([st.session_state.cats, pd.DataFrame([new_cat])], ignore_index=True)
+                    st.session_state.cats = pd.concat([st.session_state.cats, pd.DataFrame([created])], ignore_index=True)
                     categoria_id = cid
                     categoria_nome = nova_cat
                 else:
                     st.error("Falha ao criar categoria. Operação abortada.")
                     st.stop()
             else:
-                categoria_id = cat_map.get(cat_choice, "")
-                categoria_nome = cat_choice if cat_choice != "-- Nenhuma --" else ""
+                categoria_id = cat_map.get(cat_choice)
+                categoria_nome = cat_choice if cat_choice != "-- Nenhuma --" else None
 
             tx_id = str(uuid4())
-            acc_id = acc_map.get(acc_choice, "")
-            acc_name = acc_choice if acc_choice not in ["-- Nenhuma --"] else ""
-            card_id = card_map.get(card_choice, "")
-            card_name = card_choice if card_choice not in ["-- Nenhum --"] else ""
+            acc_id = acc_map.get(acc_choice)
+            acc_name = acc_choice if acc_choice not in ["-- Nenhuma --"] else None
+            card_id = card_map.get(card_choice)
+            card_name = card_choice if card_choice not in ["-- Nenhum --"] else None
 
+            # construir payload evitando enviar "" para campos UUID
             novo = {
                 "id": tx_id,
                 "data": data.strftime("%Y-%m-%d"),
                 "tipo": tipo,
-                "categoria_id": categoria_id,
-                "categoria_nome": categoria_nome,
                 "descricao": descricao,
                 "valor": float(valor),
-                "conta_id": acc_id,
-                "conta_nome": acc_name,
-                "cartao_id": card_id,
-                "cartao_nome": card_name,
             }
+            if categoria_id:
+                novo["categoria_id"] = categoria_id
+                novo["categoria_nome"] = categoria_nome
+            if acc_id:
+                novo["conta_id"] = acc_id
+                novo["conta_nome"] = acc_name
+            if card_id:
+                novo["cartao_id"] = card_id
+                novo["cartao_nome"] = card_name
 
             inserted = insert_row("transactions", novo)
             if inserted:
-                st.session_state.tx = pd.concat([st.session_state.tx, pd.DataFrame([novo])], ignore_index=True)
+                # padroniza os campos no DataFrame local (usar None -> vazio para exibição)
+                df_row = inserted.copy()
+                st.session_state.tx = pd.concat([st.session_state.tx, pd.DataFrame([df_row])], ignore_index=True)
                 st.success("Lançamento registrado com sucesso!")
 
 # ============================================================
@@ -329,7 +336,7 @@ elif menu == "Gerenciar Cartões":
                     novo = {"id": cid, "nome": nome, "limite": float(limite), "vencimento": int(vencimento)}
                     inserted = insert_row("cards", novo)
                     if inserted is not None:
-                        st.session_state.cards = pd.concat([st.session_state.cards, pd.DataFrame([novo])], ignore_index=True)
+                        st.session_state.cards = pd.concat([st.session_state.cards, pd.DataFrame([inserted])], ignore_index=True)
                         st.success(f"Cartão '{nome}' cadastrado.")
                 else:
                     st.error("Preencha o nome do cartão.")
@@ -360,14 +367,14 @@ elif menu == "Gerenciar Cartões":
                 if not linked.empty:
                     st.warning("Existem lançamentos vinculados a esse cartão. Ao excluir, as referências serão removidas.")
                     if st.button("Confirmar exclusão deste cartão"):
-                        # limpar referências em transactions
+                        # limpar referências em transactions usando NULL
                         try:
-                            supabase.table("transactions").update({"cartao_id": "", "cartao_nome": ""}).eq("cartao_id", row["id"]).execute()
+                            supabase.table("transactions").update({"cartao_id": None, "cartao_nome": None}).eq("cartao_id", row["id"]).execute()
                         except Exception as e:
                             st.error(f"Falha ao limpar referências do cartão: {e}")
                         res = delete_row("cards", row["id"])
                         if res is not None:
-                            st.session_state.tx.loc[st.session_state.tx["cartao_id"] == row["id"], ["cartao_id","cartao_nome"]] = ["", ""]
+                            st.session_state.tx.loc[st.session_state.tx["cartao_id"] == row["id"], ["cartao_id","cartao_nome"]] = [None, None]
                             st.session_state.cards = st.session_state.cards[st.session_state.cards["id"] != row["id"]]
                             st.success("Cartão excluído e referências limpas.")
                 else:
@@ -392,7 +399,7 @@ elif menu == "Gerenciar Contas":
                     novo = {"id": aid, "nome": nome, "saldo_inicial": float(saldo)}
                     inserted = insert_row("accounts", novo)
                     if inserted is not None:
-                        st.session_state.accounts = pd.concat([st.session_state.accounts, pd.DataFrame([novo])], ignore_index=True)
+                        st.session_state.accounts = pd.concat([st.session_state.accounts, pd.DataFrame([inserted])], ignore_index=True)
                         st.success(f"Conta '{nome}' cadastrada.")
                 else:
                     st.error("Preencha o nome da conta.")
@@ -422,12 +429,12 @@ elif menu == "Gerenciar Contas":
                     st.warning("Existem lançamentos vinculados a essa conta. Ao excluir, as referências serão removidas.")
                     if st.button("Confirmar exclusão desta conta"):
                         try:
-                            supabase.table("transactions").update({"conta_id": "", "conta_nome": ""}).eq("conta_id", row["id"]).execute()
+                            supabase.table("transactions").update({"conta_id": None, "conta_nome": None}).eq("conta_id", row["id"]).execute()
                         except Exception as e:
                             st.error(f"Falha ao limpar referências da conta: {e}")
                         res = delete_row("accounts", row["id"])
                         if res is not None:
-                            st.session_state.tx.loc[st.session_state.tx["conta_id"] == row["id"], ["conta_id","conta_nome"]] = ["", ""]
+                            st.session_state.tx.loc[st.session_state.tx["conta_id"] == row["id"], ["conta_id","conta_nome"]] = [None, None]
                             st.session_state.accounts = st.session_state.accounts[st.session_state.accounts["id"] != row["id"]]
                             st.success("Conta excluída e referências limpas.")
                 else:
@@ -453,12 +460,23 @@ elif menu == "Gerenciar Categorias":
             if st.form_submit_button("Cadastrar Categoria"):
                 if nome:
                     cid = str(uuid4())
-                    def_acc_id = st.session_state.accounts[st.session_state.accounts["nome"] == def_acc]["id"].iloc[0] if def_acc not in ["-- Nenhuma --"] and not st.session_state.accounts.empty else ""
-                    def_card_id = st.session_state.cards[st.session_state.cards["nome"] == def_card]["id"].iloc[0] if def_card not in ["-- Nenhum --"] and not st.session_state.cards.empty else ""
-                    novo = {"id": cid, "nome": nome, "tipo": tipo, "default_conta_id": def_acc_id, "default_cartao_id": def_card_id}
+                    # traduzir seleção para id ou None
+                    def_acc_id = None
+                    def_card_id = None
+                    if def_acc not in ["-- Nenhuma --"] and not st.session_state.accounts.empty:
+                        def_acc_id = st.session_state.accounts[st.session_state.accounts["nome"] == def_acc]["id"].iloc[0]
+                    if def_card not in ["-- Nenhum --"] and not st.session_state.cards.empty:
+                        def_card_id = st.session_state.cards[st.session_state.cards["nome"] == def_card]["id"].iloc[0]
+
+                    novo = {"id": cid, "nome": nome, "tipo": tipo}
+                    if def_acc_id:
+                        novo["default_conta_id"] = def_acc_id
+                    if def_card_id:
+                        novo["default_cartao_id"] = def_card_id
+
                     inserted = insert_row("categories", novo)
                     if inserted is not None:
-                        st.session_state.cats = pd.concat([st.session_state.cats, pd.DataFrame([novo])], ignore_index=True)
+                        st.session_state.cats = pd.concat([st.session_state.cats, pd.DataFrame([inserted])], ignore_index=True)
                         st.success("Categoria criada.")
                 else:
                     st.error("Nome é obrigatório.")
@@ -480,19 +498,34 @@ elif menu == "Gerenciar Categorias":
             with st.form("edit_cat"):
                 n_nome = st.text_input("Nome", value=row["nome"])
                 n_tipo = st.selectbox("Tipo", ["Despesa","Receita","Ambas"], index=["Despesa","Receita","Ambas"].index(row["tipo"]) if row["tipo"] in ["Despesa","Receita","Ambas"] else 2)
-                acc_names = [None] + st.session_state.accounts["nome"].tolist() if not st.session_state.accounts.empty else [None]
-                card_names = [None] + st.session_state.cards["nome"].tolist() if not st.session_state.cards.empty else [None]
-                cur_acc = id_to_name(st.session_state.accounts, row["default_conta_id"]) or None
-                cur_card = id_to_name(st.session_state.cards, row["default_cartao_id"]) or None
+                acc_names = ["-- Nenhuma --"] + st.session_state.accounts["nome"].tolist() if not st.session_state.accounts.empty else ["-- Nenhuma --"]
+                card_names = ["-- Nenhum --"] + st.session_state.cards["nome"].tolist() if not st.session_state.cards.empty else ["-- Nenhum --"]
+                cur_acc = id_to_name(st.session_state.accounts, row.get("default_conta_id")) or "-- Nenhuma --"
+                cur_card = id_to_name(st.session_state.cards, row.get("default_cartao_id")) or "-- Nenhum --"
                 n_def_acc = st.selectbox("Conta padrão", acc_names, index=acc_names.index(cur_acc) if cur_acc in acc_names else 0)
                 n_def_card = st.selectbox("Cartão padrão", card_names, index=card_names.index(cur_card) if cur_card in card_names else 0)
                 if st.form_submit_button("Salvar alterações"):
-                    def_acc_id = st.session_state.accounts[st.session_state.accounts["nome"] == n_def_acc]["id"].iloc[0] if n_def_acc not in [None] and not st.session_state.accounts.empty else ""
-                    def_card_id = st.session_state.cards[st.session_state.cards["nome"] == n_def_card]["id"].iloc[0] if n_def_card not in [None] and not st.session_state.cards.empty else ""
-                    updates = {"nome": n_nome, "tipo": n_tipo, "default_conta_id": def_acc_id, "default_cartao_id": def_card_id}
+                    def_acc_id = None
+                    def_card_id = None
+                    if n_def_acc not in ["-- Nenhuma --"] and not st.session_state.accounts.empty:
+                        def_acc_id = st.session_state.accounts[st.session_state.accounts["nome"] == n_def_acc]["id"].iloc[0]
+                    if n_def_card not in ["-- Nenhum --"] and not st.session_state.cards.empty:
+                        def_card_id = st.session_state.cards[st.session_state.cards["nome"] == n_def_card]["id"].iloc[0]
+
+                    updates = {"nome": n_nome, "tipo": n_tipo}
+                    if def_acc_id is not None:
+                        updates["default_conta_id"] = def_acc_id
+                    else:
+                        updates["default_conta_id"] = None
+                    if def_card_id is not None:
+                        updates["default_cartao_id"] = def_card_id
+                    else:
+                        updates["default_cartao_id"] = None
+
                     res = update_row("categories", row["id"], updates)
                     if res is not None:
-                        st.session_state.cats.loc[st.session_state.cats["id"] == row["id"], ["nome","tipo","default_conta_id","default_cartao_id"]] = [n_nome, n_tipo, def_acc_id, def_card_id]
+                        # atualizar localmente
+                        st.session_state.cats.loc[st.session_state.cats["id"] == row["id"], ["nome","tipo","default_conta_id","default_cartao_id"]] = [n_nome, n_tipo, updates.get("default_conta_id"), updates.get("default_cartao_id")]
                         st.success("Categoria atualizada.")
             if st.button("Excluir categoria"):
                 linked = st.session_state.tx[st.session_state.tx["categoria_id"] == row["id"]]
@@ -500,12 +533,12 @@ elif menu == "Gerenciar Categorias":
                     st.warning("Existem lançamentos vinculados a essa categoria. Ao excluir, as referências serão removidas.")
                     if st.button("Confirmar exclusão desta categoria"):
                         try:
-                            supabase.table("transactions").update({"categoria_id": "", "categoria_nome": ""}).eq("categoria_id", row["id"]).execute()
+                            supabase.table("transactions").update({"categoria_id": None, "categoria_nome": None}).eq("categoria_id", row["id"]).execute()
                         except Exception as e:
                             st.error(f"Falha ao limpar referências da categoria: {e}")
                         res = delete_row("categories", row["id"])
                         if res is not None:
-                            st.session_state.tx.loc[st.session_state.tx["categoria_id"] == row["id"], ["categoria_id","categoria_nome"]] = ["", ""]
+                            st.session_state.tx.loc[st.session_state.tx["categoria_id"] == row["id"], ["categoria_id","categoria_nome"]] = [None, None]
                             st.session_state.cats = st.session_state.cats[st.session_state.cats["id"] != row["id"]]
                             st.success("Categoria excluída e referências limpas.")
                 else:
@@ -516,4 +549,4 @@ elif menu == "Gerenciar Categorias":
 
 # footer
 st.markdown("---")
-st.write("Migrado para Supabase: substituí CSV por chamadas ao banco; mantenho o fluxo original de UI e fiz limpeza de referências ao excluir entidades.")
+st.write("Migrado para Supabase: substituí CSV por chamadas ao banco; mantive o fluxo original de UI e garanti que UUIDs vazios não são enviados (uso de NULL).")
