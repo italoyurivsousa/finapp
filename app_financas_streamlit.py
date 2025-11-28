@@ -263,9 +263,10 @@ elif menu == "Dashboard":
             (~df["categoria_nome"].str.lower().isin(["transferência", "transferencia"]))
         ]["valor"].sum()
 
-        despesas = df[
+        despesas = -df[
             (df["tipo"] == "Despesa") &
-            (~df["categoria_nome"].str.lower().isin(["transferência", "transferencia"]))
+            (~df["categoria_nome"].str.lower().isin(["transferência", "transferencia"])) &
+            (df["valor"]<0)
         ]["valor"].sum()
 
         saldo = receitas - despesas
